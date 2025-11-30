@@ -1,0 +1,8 @@
+{
+  "name": "Copy of  GEETHESH'S AI",
+  "description": "A comprehensive AI dashboard featuring education tutoring, financial advice, image generation, content writing, and a real-time voice assistant.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

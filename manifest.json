@@ -1,0 +1,23 @@
+{
+  "name": "Geethesh's AI",
+  "short_name": "GeetheshAI",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "description": "Geethesh's AI - Your Personal AI Assistant",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/12222/12222560.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/12222/12222560.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
