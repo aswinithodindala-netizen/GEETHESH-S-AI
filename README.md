@@ -1,20 +1,63 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Geethesh's AI
 
-# Run and deploy your AI Studio app
+A comprehensive AI dashboard featuring education tutoring, financial advice, image generation, content writing, and a real-time voice assistant.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1N9vEChbM-KaWw-7wePa5RPzj2vRQncgB
+- **Education Hub**: AI tutor for academic subjects.
+- **Financial Advisor**: Financial insights and charting.
+- **Thumbnail Creator**: AI image generation for thumbnails.
+- **Writer & PDF Tool**: Content creation assistant.
+- **Music Hub**: AI Music generator and YouTube player.
+- **Live Assistant**: Real-time voice and video interaction.
+- **PWA Support**: Installable on Android/iOS.
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- **Frontend**: React, TypeScript, Tailwind CSS, Lucide React, Recharts.
+- **AI**: Google Gemini API (`@google/genai`).
+- **Build Tool**: Vite.
 
+## Getting Started
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Prerequisites
+
+- Node.js (v18 or higher)
+- A Google Gemini API Key
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/yourusername/geethesh-ai.git
+    cd geethesh-ai
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Configure API Key:
+    - Create a `.env` file in the root directory.
+    - Add your API Key:
+      ```env
+      API_KEY=your_gemini_api_key_here
+      ```
+
+4.  Run the development server:
+    ```bash
+    npm run dev
+    ```
+
+5.  Open your browser at `http://localhost:5173`.
+
+## Deployment
+
+To build for production:
+
+```bash
+npm run build
+```
+
+The output will be in the `dist` directory, ready to be deployed to Vercel, Netlify, or any static host.

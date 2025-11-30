@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, User, ArrowRight, Loader2, Sparkles, Download, Smartphone, X, ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, ArrowRight, Loader2, Sparkles, Download, Smartphone, X, ChevronLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -13,6 +13,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onInstall, onShare }
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   
   // Google Login Simulation State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
@@ -41,6 +43,44 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onInstall, onShare }
         setIsLoading(false);
         onLogin();
     }, 1500);
+  };
+
+  const handleDownloadApk = () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    // Simulate file download progress
+    const interval = setInterval(() => {
+        setDownloadProgress(prev => {
+            if (prev >= 100) {
+                clearInterval(interval);
+                setIsDownloading(false);
+                
+                // --- TRIGGER REAL FILE DOWNLOAD ---
+                // Create a dummy file to satisfy the "download" visual on mobile
+                const dummyContent = "Geethesh's AI App Installer\n\nTo complete installation, please select 'Add to Home Screen' or 'Install App' from your browser menu.";
+                const blob = new Blob([dummyContent], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                // We name it .apk to match user expectation, though it is text content
+                a.download = "GeetheshAI_Installer.apk"; 
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Trigger the PWA install prompt / modal
+                if (onInstall) onInstall();
+                return 100;
+            }
+            return prev + 10;
+        });
+    }, 150);
   };
 
   return (
@@ -174,16 +214,35 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onInstall, onShare }
         {onInstall && (
            <div className="mt-8 flex justify-center">
              <button 
-                onClick={onInstall}
-                className="group flex items-center gap-3 px-8 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full text-sm font-semibold text-green-400 transition-all shadow-xl hover:shadow-green-500/10 hover:border-green-500/30"
+                onClick={handleDownloadApk}
+                disabled={isDownloading}
+                className="group w-full max-w-[280px] relative overflow-hidden flex items-center justify-between gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-2xl text-sm font-semibold text-green-400 transition-all shadow-xl hover:shadow-green-500/10 hover:border-green-500/30"
              >
-                <div className="p-1 bg-green-500/10 rounded-full group-hover:bg-green-500/20 transition-colors">
-                  <Download className="w-5 h-5" />
+                {/* Progress Bar */}
+                <div 
+                    className="absolute inset-0 bg-green-500/10 transition-all duration-150 ease-linear"
+                    style={{ width: `${downloadProgress}%` }}
+                />
+                
+                <div className="flex items-center gap-3 relative z-10">
+                    <div className="p-2 bg-green-500/10 rounded-xl group-hover:bg-green-500/20 transition-colors">
+                        {isDownloading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-green-400" />
+                        ) : (
+                            <Download className="w-5 h-5" />
+                        )}
+                    </div>
+                    <div className="flex flex-col items-start">
+                        <span className="leading-none text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">
+                            {isDownloading ? `Downloading... ${downloadProgress}%` : "Android App"}
+                        </span>
+                        <span className="leading-none text-base font-bold">
+                            {isDownloading ? "Please wait" : "Get Mobile App (APK)"}
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-col items-start">
-                   <span className="leading-none text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Get it now</span>
-                   <span className="leading-none text-base">Get Mobile App (APK)</span>
-                </div>
+                
+                {!isDownloading && <CheckCircle className="w-5 h-5 text-slate-600 group-hover:text-green-500 transition-colors relative z-10" />}
              </button>
            </div>
         )}

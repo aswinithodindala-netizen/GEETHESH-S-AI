@@ -4,16 +4,38 @@ import { ChartDataSchema } from "../types";
 const apiKey = process.env.API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
+// Helper to check if we should use backend (you can toggle this based on env vars or build mode)
+// For this setup, we assume if we are in a browser environment, we try to hit the relative /api path
+const USE_BACKEND = true; 
+
 export const generateTextResponse = async (
   prompt: string,
   systemInstruction?: string,
   imagePart?: { data: string; mimeType: string },
   isFinancial: boolean = false
 ) => {
+  if (USE_BACKEND) {
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt, 
+          systemInstruction, 
+          isFinancial,
+          imagePart // Pass image data if needed, backend needs to handle it (server/index.js updated to handle basic text for now)
+        })
+      });
+      if (!response.ok) throw new Error('Backend request failed');
+      const data = await response.json();
+      return data.text;
+    } catch (e) {
+      console.warn("Backend failed, falling back to direct SDK:", e);
+      // Fallback to SDK below
+    }
+  }
+
   try {
-    // Use gemini-2.5-flash-lite for low latency responses as requested
-    // Financial mode retains standard flash for specific structured data capabilities, 
-    // while other modes use the lightweight model for speed.
     const model = isFinancial ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
     
     const parts: any[] = [];
@@ -31,7 +53,6 @@ export const generateTextResponse = async (
       systemInstruction,
     };
 
-    // If financial, try to get structured data for charts + text
     if (isFinancial) {
       config.responseMimeType = "application/json";
       config.responseSchema = ChartDataSchema;
@@ -51,8 +72,22 @@ export const generateTextResponse = async (
 };
 
 export const generateImage = async (prompt: string, aspectRatio: string = "1:1") => {
+  if (USE_BACKEND) {
+    try {
+      const response = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, aspectRatio })
+      });
+      if (!response.ok) throw new Error('Backend request failed');
+      const data = await response.json();
+      return data.url;
+    } catch (e) {
+      console.warn("Backend failed, falling back to direct SDK:", e);
+    }
+  }
+
   try {
-    // Prepend explicit instruction to ensure the model generates an image and doesn't just chat
     const fullPrompt = `Generate a high-quality image of: ${prompt}`;
     
     const response = await ai.models.generateContent({
@@ -61,7 +96,6 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
       config: {
         imageConfig: {
           aspectRatio: aspectRatio as any, 
-          // imageSize not supported for flash-image, only pro-image-preview
         }
       }
     });
@@ -70,8 +104,6 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
     let imageData = null;
     let textMessage = "";
 
-    // Iterate through all parts to find the image. 
-    // The model might return text ("Here is your image") AND the image.
     for (const part of parts) {
       if (part.inlineData) {
         imageData = `data:image/png;base64,${part.inlineData.data}`;
@@ -85,12 +117,12 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
       return imageData;
     }
 
-    // If no image found, then the text message is likely a refusal or error explanation
     if (textMessage) {
-      throw new Error(textMessage);
+      // Sometimes the model explains why it can't generate
+      console.warn("Model text response:", textMessage);
     }
 
-    throw new Error("No image data found in response. The model may have refused the request.");
+    throw new Error("No image data found in response.");
   } catch (error) {
     console.error("AI Image Generation Error:", error);
     throw error;
@@ -98,8 +130,9 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
 };
 
 export const generateMusic = async (prompt: string) => {
+  // TTS/Music generation is currently not in the simple backend example, so we keep direct SDK usage
+  // or you could add /api/music/generate to server/index.js similarly.
   try {
-    // Use TTS model as native-audio is not supported for generateContent in this context
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-preview-tts',
       contents: { parts: [{ text: prompt }] },
@@ -116,8 +149,8 @@ export const generateMusic = async (prompt: string) => {
     const part = response.candidates?.[0]?.content?.parts?.[0];
     if (part?.inlineData) {
       return {
-        data: part.inlineData.data, // Base64 string
-        mimeType: part.inlineData.mimeType || 'audio/pcm' // Likely audio/pcm
+        data: part.inlineData.data,
+        mimeType: part.inlineData.mimeType || 'audio/pcm'
       };
     }
     throw new Error("No audio generated.");
@@ -128,9 +161,25 @@ export const generateMusic = async (prompt: string) => {
 };
 
 export const findYoutubeVideo = async (query: string): Promise<{videoId: string, title: string} | null> => {
+  if (USE_BACKEND) {
+    try {
+      const response = await fetch('/api/music/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (!response.ok) throw new Error('Backend request failed');
+      const data = await response.json();
+      // The backend returns the raw text from the AI, we still need to parse it here 
+      // OR update backend to return parsed JSON. 
+      // For now, let's parse the text returned by backend.
+      return parseSearchResponse(data.text, query);
+    } catch (e) {
+      console.warn("Backend failed, falling back to direct SDK:", e);
+    }
+  }
+
   try {
-    // Cannot use responseMimeType: "application/json" with tools like googleSearch.
-    // Instead, we ask for a strict text format and parse it.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: { 
@@ -147,13 +196,20 @@ export const findYoutubeVideo = async (query: string): Promise<{videoId: string,
       },
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType removed to avoid 400 error
       }
     });
 
     const text = response.text || "";
-    
-    // Parse the custom format
+    return parseSearchResponse(text, query);
+
+  } catch (error) {
+    console.error("Search Error:", error);
+    return null;
+  }
+};
+
+// Helper to parse the AI text response for video ID and title
+function parseSearchResponse(text: string, query: string) {
     const idMatch = text.match(/VIDEO_ID:\s*([a-zA-Z0-9_-]{11})/);
     const titleMatch = text.match(/TITLE:\s*(.+)/);
 
@@ -164,7 +220,6 @@ export const findYoutubeVideo = async (query: string): Promise<{videoId: string,
          };
     }
     
-    // Fallback: Check for URL in the text if the model returned a link instead of strict format
     const urlRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
     const urlMatch = text.match(urlRegex);
     
@@ -174,15 +229,11 @@ export const findYoutubeVideo = async (query: string): Promise<{videoId: string,
              title: titleMatch ? titleMatch[1].trim() : query 
          };
     }
-
     return null;
-
-  } catch (error) {
-    console.error("Search Error:", error);
-    return null;
-  }
-};
+}
 
 export const getLiveClient = () => {
+  // Live API requires WebSocket and complex proxying, so we stick to Direct SDK for now.
+  // This means the API KEY is still required in the frontend for this specific feature.
   return ai.live;
 };
